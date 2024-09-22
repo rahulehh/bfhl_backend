@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
+import { fileTypeFromBuffer } from "file-type";
 
 const app = express();
 const port = 3000;
@@ -13,23 +14,27 @@ app.get("/bfhl", (req, res) => {
   res.status(200).json({ operation_code: 1 });
 });
 
-app.post("/bfhl", (req, res) => {
+app.post("/bfhl", async (req, res) => {
   try {
     const data = req.body.data;
     const base64String = req.body.file_b64;
-    let fileValid = true;
 
     console.log({ data, base64String });
 
-    const mimeTypeMatch = base64String.match(/^data:(.+);base64,/);
-    if (!mimeTypeMatch) {
-      fileValid = false;
-    } else {
-      const mimeType = mimeTypeMatch[1];
-      const base64Data = base64String.replace(/^data:.+;base64,/, "");
-      const binaryData = Buffer.from(base64Data, "base64");
-      const fileSizeKb = binaryData.length / 1024;
+    async function getMimeTypeFromBase64(base64String) {
+      if (base64String) {
+        const buffer = Buffer.from(base64String, "base64");
+        const { mime: mimeType } = await fileTypeFromBuffer(buffer);
+        const fileSizeKb = Math.round(buffer.length / 1024);
+        console.log({ mimeType, fileSizeKb });
+        return { mimeType, fileSizeKb };
+      }
     }
+
+    if (base64String) {
+      var { mimeType, fileSizeKb } = await getMimeTypeFromBase64(base64String);
+    }
+    console.log({ mimeType, fileSizeKb });
 
     let numbers = [];
     let alphabets = [];
@@ -60,7 +65,7 @@ app.post("/bfhl", (req, res) => {
       file_valid: false
     };
 
-    if (mimeTypeMatch && fileValid) {
+    if (mimeType && fileSizeKb) {
       response.file_valid = true;
       response.file_size_kb = fileSizeKb;
       response.file_type = mimeType;
