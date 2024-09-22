@@ -1,42 +1,41 @@
 import express from "express";
 import cors from "cors";
-import multer from "multer";
-
-const upload = multer({ storage: multer.memoryStorage() });
-
-const isValidBase64 = (str) => {
-  try {
-    Buffer.from(str, "base64").toString("binary");
-    return true;
-  } catch (err) {
-    return false;
-  }
-};
+import bodyParser from "body-parser";
 
 const app = express();
 const port = 3000;
 
-app.use(express.json());
+app.use(bodyParser.json());
 app.use(cors());
+app.use(express.urlencoded({ extended: true }));
 
 app.get("/bfhl", (req, res) => {
   res.status(200).json({ operation_code: 1 });
 });
 
-app.post("/bfhl", upload.single("file_b64"), (req, res) => {
+app.post("/bfhl", (req, res) => {
   try {
-    const data = JSON.parse(req.body.data);
-    const file = req.file;
+    const data = req.body.data;
+    const base64String = req.body.file_b64;
+    let fileValid = true;
 
-    const fileValid = file && isValidBase64(file.buffer.toString("base64"));
-    const fileType = file && file.mimetype;
-    const fileSizeKb = file && (file.size / 1024).toFixed(2);
+    console.log({ data, base64String });
+
+    const mimeTypeMatch = base64String.match(/^data:(.+);base64,/);
+    if (!mimeTypeMatch) {
+      fileValid = false;
+    } else {
+      const mimeType = mimeTypeMatch[1];
+      const base64Data = base64String.replace(/^data:.+;base64,/, "");
+      const binaryData = Buffer.from(base64Data, "base64");
+      const fileSizeKb = binaryData.length / 1024;
+    }
 
     let numbers = [];
     let alphabets = [];
     let highestLowerCase = null;
 
-    data.data.forEach((item) => {
+    data.forEach((item) => {
       if (!isNaN(item)) {
         numbers.push(item);
       } else if (typeof item === "string") {
@@ -58,13 +57,13 @@ app.post("/bfhl", upload.single("file_b64"), (req, res) => {
       numbers: numbers,
       alphabets: alphabets,
       highest_lowercase_alphabet: highestLowerCase ? [highestLowerCase] : [],
-      file_valid: fileValid,
-      file_mime_type: fileType,
-      file_size_kb: fileSizeKb
+      file_valid: false
     };
 
-    if (!fileValid) {
-      response.file_valid = false;
+    if (mimeTypeMatch && fileValid) {
+      response.file_valid = true;
+      response.file_size_kb = fileSizeKb;
+      response.file_type = mimeType;
     }
 
     res.status(200).json(response);
