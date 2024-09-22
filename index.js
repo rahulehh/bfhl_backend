@@ -71,7 +71,7 @@ app.post("/bfhl", upload.single("file_b64"), (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(200).json({
-      is_success: true,
+      is_success: false,
       user_id: "rahul_s_20080023",
       email: "rs6867@srmist.edu.in",
       roll_number: "RA2111026050031"
